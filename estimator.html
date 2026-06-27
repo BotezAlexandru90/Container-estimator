@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Container Planner PRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/DragControls.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans p-2 overflow-hidden">
+
+    <div class="max-w-[1600px] mx-auto bg-white rounded-xl shadow-2xl flex flex-col lg:flex-row h-[96vh]">
+        
+        <!-- SIDEBAR -->
+        <div class="w-full lg:w-[380px] p-5 bg-slate-50 border-r border-slate-200 overflow-y-auto h-full text-xs">
+            
+            <h2 class="text-lg font-bold mb-4 text-indigo-900 border-b pb-1">1. Container & Setup</h2>
+            <select id="containerType" class="w-full p-2 border border-slate-300 rounded mb-3 text-sm" onchange="initContainer()">
+                <option value="20">20ft Container (590 x 235 x 239 cm)</option>
+                <option value="40">40ft Container (1203 x 235 x 239 cm)</option>
+            </select>
+            <div class="mb-3">
+                <label class="text-slate-500">Estimated Freight/Shipping Cost (€)</label>
+                <input type="number" id="freightCost" value="2100" onchange="updateAnalytics()" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+            </div>
+            <div class="flex gap-2 mb-6">
+                <button onclick="exportSetup()" class="flex-1 bg-indigo-600 text-white font-bold py-2 rounded shadow">Save Setup</button>
+                <input type="file" id="importSetupInput" class="hidden" onchange="importSetup(event)">
+                <button onclick="document.getElementById('importSetupInput').click()" class="flex-1 bg-slate-600 text-white font-bold py-2 rounded shadow">Load Setup</button>
+            </div>
+
+            <h2 class="text-lg font-bold mb-4 text-indigo-900 border-b pb-1">2. Goods Catalog</h2>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <div><label class="text-slate-500">Length (cm)</label><input type="number" id="gL" value="40" class="p-2 border rounded w-full"></div>
+                <div><label class="text-slate-500">Width (cm)</label><input type="number" id="gW" value="30" class="p-2 border rounded w-full"></div>
+                <div><label class="text-slate-500">Height (cm)</label><input type="number" id="gH" value="25" class="p-2 border rounded w-full"></div>
+                <div><label class="text-slate-500">Weight (kg)</label><input type="number" id="gWeight" value="10" class="p-2 border rounded w-full"></div>
+                <!-- Packaging Cost Input -->
+                <div class="col-span-2 mt-1">
+                    <label class="text-slate-500 font-bold">Packaging Cost per Piece (€)</label>
+                    <input type="number" id="gPackCost" value="0.40" step="0.01" class="p-2 border border-indigo-200 rounded w-full bg-indigo-50">
+                </div>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="gName" placeholder="Item Name" class="p-2 border rounded flex-1">
+                <button onclick="saveGood()" class="bg-blue-600 text-white px-3 rounded font-bold">Save</button>
+            </div>
+            <div class="bg-white p-2 border rounded mb-6 shadow-sm">
+                <select id="catalogList" class="w-full p-1 mb-2 border-b" onchange="loadGood()"><option value="">-- Saved Goods --</option></select>
+                <div class="flex gap-2">
+                    <button onclick="exportCatalog()" class="flex-1 text-slate-500 hover:text-indigo-600 underline">Export Catalog</button>
+                    <input type="file" id="importCatInput" class="hidden" onchange="importCatalog(event)">
+                    <button onclick="document.getElementById('importCatInput').click()" class="flex-1 text-slate-500 hover:text-indigo-600 underline">Import Catalog</button>
+                </div>
+            </div>
+
+            <h2 class="text-lg font-bold mb-4 text-indigo-900 border-b pb-1">3. Pallet Loading</h2>
+            <select id="palletType" class="w-full p-2 border border-slate-300 rounded mb-3 text-sm">
+            <option value="eur1">EUR 1 (80 x 120 cm)</option>
+            <option value="eur2">EUR 2 (120 x 100 cm)</option>
+            <option value="eur3">EUR 3 (100 x 120 cm)</option>
+            <option value="eur6">EUR 6 (80 x 60 cm)</option>
+            <option value="usa_auto">USA Automotive (121.9 x 114.3 cm)</option>
+            <option value="box">Custom Box (120 x 80 cm)</option>
+        </select>
+            <div class="grid grid-cols-3 gap-2 mb-4">
+                <div><label>Rows</label><input type="number" id="pRows" value="2" class="p-2 border rounded w-full"></div>
+                <div><label>Cols</label><input type="number" id="pCols" value="2" class="p-2 border rounded w-full"></div>
+                <div><label>Layers</label><input type="number" id="pLayers" value="4" class="p-2 border rounded w-full"></div>
+            </div>
+                <div class="mb-4"> 
+                    <label class="text-slate-500">Target Parts</label> 
+                    <input type="number" id="targetParts" value="1000" step="1" class="p-2 border border-emerald-200 rounded w-full bg-emerald-50"> 
+                </div>
+            <div class="flex gap-2">
+                <button onclick="optimizePallet()" class="flex-1 bg-purple-600 text-white font-bold py-3 rounded shadow hover:bg-purple-700 uppercase">Optimize</button>
+                <button onclick="addPallet()" class="flex-1 bg-indigo-500 text-white font-bold py-3 rounded shadow hover:bg-indigo-600 uppercase">Build & Add</button>
+            </div>
+                <button onclick="customSetup()" class="w-full mt-2 bg-emerald-600 text-white font-bold py-3 rounded shadow hover:bg-emerald-700 uppercase">Custom Setup</button>
+
+            <div id="analytics" class="mt-6 bg-slate-900 text-white p-4 rounded-lg shadow-xl space-y-2 border-t-4 border-indigo-500">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-indigo-300 font-bold uppercase tracking-wider">Cargo Status</span>
+                    <select id="costStd" onchange="updateAnalytics()" class="bg-slate-700 text-[10px] p-1 rounded"><option value="EU">EU Price</option><option value="CN">CN Price</option></select>
+                </div>
+
+                <div id="renderWarning" class="hidden bg-orange-600/20 text-orange-400 p-2 rounded border border-orange-600/50 flex items-center gap-2 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>Pallets limited to 300 parts visually.</span>
+                </div>
+
+                <div id="skuBreakdown" class="space-y-1 mb-2 border-b border-slate-700 pb-2"></div>
+
+                <div class="flex justify-between text-yellow-400 font-bold border-b border-slate-700 pb-1"><span>Landed Cost / Pc:</span> <span>€ <span id="outCostPiece">0.00</span></span></div>
+                <div class="flex justify-between pt-1"><span>Total Parts:</span> <span id="outTotalItems">0</span></div>
+                <div class="flex justify-between"><span>Total Vol (CBM):</span> <span><span id="outVol">0.00</span> m³</span></div>
+                <div class="flex justify-between"><span>Total Weight:</span> <span><span id="outWeight">0.00</span> t</span></div>
+                <div class="flex justify-between text-slate-400"><span>Packaging Cost:</span> <span>€ <span id="outPackTotal">0.00</span></span></div>
+                <div class="flex justify-between text-slate-400"><span>Freight Cost:</span> <span>€ <span id="outFreightTotal">0.00</span></span></div>
+                <div class="flex justify-between text-green-400 font-bold pt-1 border-t border-slate-700"><span>Grand Total:</span> <span>€ <span id="outTotalCost">0.00</span></span></div>
+                <div class="flex justify-between text-indigo-300"><span>Utilization:</span> <span><span id="outUtil">0.0</span> %</span></div>
+                <button onclick="clearAll()" class="w-full mt-3 bg-red-700 py-1 rounded hover:bg-red-600 text-[10px] font-bold uppercase">Clear Container</button>
+            </div>
+        </div>
+
+        <!-- 3D VIEW -->
+        <div class="flex-1 relative h-full bg-slate-200" id="canvas-container">
+            <div class="absolute top-4 left-4 bg-white/80 p-3 rounded shadow text-[10px] z-20 pointer-events-none border-l-4 border-indigo-600 uppercase">
+                <b>Controls:</b><br>
+                • Mouse Left: Drag Pallet<br>
+                • Mouse Right: Rotate Camera<br>
+                • Key [R]: Rotate Selected Pallet<br>
+                • Double Click: Delete Pallet
+            </div>
+        </div>
+    </div>
+
+<script>
+    const PALLETS = {
+        eur1: { l: 80, w: 120, h: 80, isBox: true, weight: 25, color: 0xc4a484 },
+        eur2: { l: 120, w: 100, h: 80, isBox: true, weight: 33, color: 0xc4a484 },
+        eur3: { l: 100, w: 120, h: 80, isBox: true, weight: 29, color: 0xc4a484 },
+        eur6: { l: 80, w: 60, h: 80, isBox: true, weight: 9.5, color: 0xc4a484 },
+        usa_auto: { l: 121.9, w: 114.3, h: 80, isBox: true, weight: 29, color: 0xc4a484 },
+        box: { l: 120, w: 80, h: 80, isBox: true, weight: 30, color: 0x95a5a6 }
+    };
+    
+    const CONTAINERS = { "20": { l: 590, w: 235, h: 239, vol: 33.1, defaultFreight: 2100 }, "40": { l: 1203, w: 235, h: 239, vol: 67.5, defaultFreight: 3800 } };
+    
+    // Note: EU Individual Box cost is now €11.00
+    const UNIT_COSTS = { 
+        EU: { pallet: 15, box: 0.2, wrap: 2.5 }, 
+        CN: { pallet: 8, box: 0.15, wrap: 1.0 } 
+    };
+
+    let scene, camera, renderer, orbit, drag, containerBox;
+    let draggablePallets = [];
+    let hoveredPallet = null;
+    let catalog = [];
+
+    // Default Catalog Data
+    catalog = [
+        { name: "MKC2 HECU", l: 12, w: 18, h: 17.5, weight: 5.6, packCost: 0.40 },
+        { name: "MKC2 Piston Rod", l: 17, w: 1.55, h: 1.55, weight: 0.103, packCost: 0.25 }
+    ];
+
+    function init() {
+        const zone = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xd1d5db);
+        camera = new THREE.PerspectiveCamera(40, zone.clientWidth / zone.clientHeight, 1, 5000);
+        camera.position.set(600, 600, 600);
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(zone.clientWidth, zone.clientHeight);
+        zone.appendChild(renderer.domElement);
+        orbit = new THREE.OrbitControls(camera, renderer.domElement);
+        orbit.enableDamping = true;
+        orbit.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.4);
+        sun.position.set(200, 500, 200);
+        scene.add(sun);
+        const grid = new THREE.GridHelper(2000, 20, 0x999999, 0xbbbbbb);
+        scene.add(grid);
+        drag = new THREE.DragControls(draggablePallets, camera, renderer.domElement);
+        drag.addEventListener('dragstart', (e) => { orbit.enabled = false; });
+        drag.addEventListener('drag', onPalletDrag);
+        drag.addEventListener('dragend', (e) => { orbit.enabled = true; updateAnalytics(); });
+        drag.addEventListener('hoveron', (e) => hoveredPallet = e.object);
+        drag.addEventListener('hoveroff', () => hoveredPallet = null);
+        window.addEventListener('keydown', (e) => { if(e.key.toLowerCase() === 'r') rotatePallet(); });
+        renderer.domElement.addEventListener('dblclick', deletePallet);
+        updateCatalogDropdown();
+        initContainer();
+        animate();
+    }
+
+    function initContainer() {
+        if(containerBox) scene.remove(containerBox);
+        const type = document.getElementById('containerType').value;
+        const dim = CONTAINERS[type];
+        document.getElementById('freightCost').value = dim.defaultFreight;
+        const geo = new THREE.BoxGeometry(dim.l, dim.h, dim.w);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x475569, wireframe: true, transparent: true, opacity: 0.3 });
+        containerBox = new THREE.Mesh(geo, mat);
+        containerBox.position.y = dim.h / 2;
+        scene.add(containerBox);
+        updateAnalytics();
+    }
+
+    function createTextSprite(text) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 512; canvas.height = 128;
+        context.fillStyle = 'rgba(255, 69, 0, 0.9)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.font = 'Bold 40px Arial';
+        context.textAlign = 'center';
+        context.fillStyle = 'white';
+        context.fillText(text, canvas.width / 2, canvas.height / 2 + 15);
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(80, 20, 1);
+        return sprite;
+    }
+
+    function addPallet(preset = null) {
+        const name = preset ? preset.name : (document.getElementById('gName').value || "Unnamed Item");
+        const l = preset ? preset.g.l : parseFloat(document.getElementById('gL').value);
+        const w = preset ? preset.g.w : parseFloat(document.getElementById('gW').value);
+        const h = preset ? preset.g.h : parseFloat(document.getElementById('gH').value);
+        const weight = preset ? preset.g.weight : parseFloat(document.getElementById('gWeight').value);
+        const packCost = preset ? preset.g.packCost : parseFloat(document.getElementById('gPackCost').value);
+        
+        const type = preset ? preset.pType : document.getElementById('palletType').value;
+        const pConf = PALLETS[type];
+        const rows = preset ? preset.rows : parseInt(document.getElementById('pRows').value);
+        const cols = preset ? preset.cols : parseInt(document.getElementById('pCols').value);
+        const layers = preset ? preset.layers : parseInt(document.getElementById('pLayers').value);
+
+        const itemsCount = rows * cols * layers;
+        const fullH = Math.max(pConf.h, 15 + (h * layers));
+
+        const geo = new THREE.BoxGeometry(pConf.l, fullH, pConf.w);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.05 });
+        const palletMesh = new THREE.Mesh(geo, mat);
+
+        const floorGeo = new THREE.BoxGeometry(pConf.l, 15, pConf.w);
+        const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0xc4a484 }));
+        floorMesh.position.y = -(fullH / 2) + 7.5; 
+        palletMesh.add(floorMesh);
+        floorMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(floorGeo), new THREE.LineBasicMaterial({ color: 0x000000 })));
+
+        if (pConf.h > 15) {
+            const wallH = pConf.h - 15;
+            const wallGeo = new THREE.BoxGeometry(pConf.l, wallH, pConf.w);
+            const wallMesh = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: pConf.color, transparent: true, opacity: 0.3 }));
+            wallMesh.position.y = -(fullH / 2) + 15 + (wallH / 2);
+            palletMesh.add(wallMesh);
+            wallMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(wallGeo), new THREE.LineBasicMaterial({ color: 0x000000 })));
+        }
+
+        const RENDER_LIMIT = 300;
+        const actualToRender = Math.min(itemsCount, RENDER_LIMIT);
+        const dummy = new THREE.Object3D();
+        let idx = 0;
+
+        const itemColor = new THREE.Color().setHSL(Math.random(), 0.7, 0.5);
+        const itemGeo = new THREE.BoxGeometry(l-1, h-1, w-1);
+        const itemMat = new THREE.MeshStandardMaterial({ color: itemColor });
+        const instancedItems = new THREE.InstancedMesh(itemGeo, itemMat, actualToRender);
+        
+        outerLoop: for(let lay=0; lay<layers; lay++) {
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    if (idx >= actualToRender) break outerLoop;
+                    dummy.position.set(-(rows*l/2)+r*l+l/2, -(fullH/2)+15+(lay*h)+h/2, -(cols*w/2)+c*w+w/2);
+                    dummy.updateMatrix();
+                    instancedItems.setMatrixAt(idx++, dummy.matrix);
+                }
+            }
+        }
+        palletMesh.add(instancedItems);
+
+        if (itemsCount > RENDER_LIMIT) {
+            const warningLabel = createTextSprite(`Visual Limit: 300 / ${itemsCount}`);
+            warningLabel.position.y = (fullH / 2) + 15;
+            palletMesh.add(warningLabel);
+        }
+
+        const std = document.getElementById('costStd').value;
+        const palletCostEU = UNIT_COSTS.EU.pallet + UNIT_COSTS.EU.wrap + (itemsCount * packCost);
+        const palletCostCN = UNIT_COSTS.CN.pallet + UNIT_COSTS.CN.wrap + (itemsCount * packCost);
+
+        palletMesh.userData = {
+            palletKey: type, rows, cols, layers,
+            name: name,
+            goodDims: { l, w, h, weight, packCost },
+            itemsCount: itemsCount, totalH: fullH, l: pConf.l, w: pConf.w,
+            calcWeight: pConf.weight + (itemsCount * weight),
+            calcVol: (l * w * h * itemsCount) / 1000000,
+            costEU: palletCostEU,
+            costCN: palletCostCN,
+            isLimited: itemsCount > RENDER_LIMIT
+        };
+
+        if(preset) {
+            palletMesh.position.set(preset.pos.x, preset.pos.y, preset.pos.z);
+            palletMesh.rotation.y = preset.rot;
+            if(Math.abs(Math.sin(preset.rot)) > 0.5) { palletMesh.userData.l = pConf.w; palletMesh.userData.w = pConf.l; }
+        } else {
+            palletMesh.position.set(0, fullH/2, 0);
+        }
+
+        scene.add(palletMesh);
+        draggablePallets.push(palletMesh);
+        updateAnalytics();
+    }
+
+    function onPalletDrag(e) {
+        const obj = e.object;
+        const type = document.getElementById('containerType').value;
+        const cDim = CONTAINERS[type];
+        obj.position.x = Math.round(obj.position.x / 10) * 10;
+        obj.position.z = Math.round(obj.position.z / 10) * 10;
+        let groundY = obj.userData.totalH / 2;
+        draggablePallets.forEach(other => {
+            if(other === obj) return;
+            const dx = Math.abs(obj.position.x - other.position.x);
+            const dz = Math.abs(obj.position.z - other.position.z);
+            if(dx < (obj.userData.l/2 + other.userData.l/2 - 2) && dz < (obj.userData.w/2 + other.userData.w/2 - 2)) {
+                let stackHeight = other.position.y + other.userData.totalH/2 + obj.userData.totalH/2;
+                if(stackHeight > groundY) groundY = stackHeight;
+            }
+        });
+        obj.position.y = groundY;
+        const limX = cDim.l/2 - obj.userData.l/2, limZ = cDim.w/2 - obj.userData.w/2;
+        obj.position.x = Math.max(-limX, Math.min(limX, obj.position.x));
+        obj.position.z = Math.max(-limZ, Math.min(limZ, obj.position.z));
+    }
+
+    function rotatePallet() {
+        if(!hoveredPallet) return;
+        hoveredPallet.rotation.y += Math.PI / 2;
+        let t = hoveredPallet.userData.l; hoveredPallet.userData.l = hoveredPallet.userData.w; hoveredPallet.userData.w = t;
+        updateAnalytics();
+    }
+
+    function deletePallet(e) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(mouse, camera);
+        const hits = ray.intersectObjects(draggablePallets);
+        if(hits.length > 0) {
+            let target = hits[0].object; while (target.parent && !draggablePallets.includes(target)) target = target.parent;
+            
+            // Memory Cleanup: Dispose geometries and materials
+            target.traverse(node => {
+                if (node.geometry) node.geometry.dispose();
+                if (node.material) {
+                    if (Array.isArray(node.material)) node.material.forEach(m => m.dispose());
+                    else node.material.dispose();
+                }
+            });
+
+            scene.remove(target); draggablePallets.splice(draggablePallets.indexOf(target), 1); updateAnalytics();
+        }
+    }
+
+    function optimizePallet() {
+        const gl = parseFloat(document.getElementById('gL').value), gw = parseFloat(document.getElementById('gW').value), gh = parseFloat(document.getElementById('gH').value);
+        const pConf = PALLETS[document.getElementById('palletType').value];
+        let rA = Math.floor(pConf.l / gl), cA = Math.floor(pConf.w / gw);
+        let rB = Math.floor(pConf.l / gw), cB = Math.floor(pConf.w / gl);
+        if ((rB * cB) > (rA * cA)) {
+            document.getElementById('gL').value = gw; document.getElementById('gW').value = gl;
+            document.getElementById('pRows').value = rB; document.getElementById('pCols').value = cB;
+        } else {
+            document.getElementById('pRows').value = rA; document.getElementById('pCols').value = cA;
+        }
+        const usableH = (pConf.h > 15) ? (pConf.h - 15) : (214.5);
+        document.getElementById('pLayers').value = Math.floor(usableH / gh) || 1;
+        addPallet();
+    }
+
+    function customSetup() {
+        const targetParts = parseInt(document.getElementById('targetParts').value);
+        if (isNaN(targetParts) || targetParts <= 0) return alert("Please enter a valid number of target parts.");
+
+        const gl = parseFloat(document.getElementById('gL').value), gw = parseFloat(document.getElementById('gW').value), gh = parseFloat(document.getElementById('gH').value);
+        const pKey = document.getElementById('palletType').value;
+        const pConf = PALLETS[pKey];
+
+        // 1. Calculate the most efficient orientation/layers (Advice logic)
+        let rA = Math.floor(pConf.l / gl), cA = Math.floor(pConf.w / gw);
+        let rB = Math.floor(pConf.l / gw), cB = Math.floor(pConf.w / gl);
+        let finalR, finalC;
+        if ((rB * cB) > (rA * cA)) {
+            finalR = rB; finalC = cB;
+            document.getElementById('gL').value = gw; document.getElementById('gW').value = gl;
+        } else {
+            finalR = rA; finalC = cA;
+        }
+        const usableH = (pConf.h > 15) ? (pConf.h - 15) : (214.5);
+        let finalLayers = Math.floor(usableH / gh) || 1;
+
+        // 2. Determine how many pallets are needed to reach the target parts count
+        const itemsCountPerPallet = finalR * finalC * finalLayers;
+        const count = Math.ceil(targetParts / itemsCountPerPallet);
+
+        // 3. Update inputs and batch add
+        document.getElementById('pRows').value = finalR; document.getElementById('pCols').value = finalC; document.getElementById('pLayers').value = finalLayers;
+        if(confirm(`To ship ${targetParts} parts, you need ${count} full pallets. Add them now?`)) {
+            for(let i=0; i < count; i++) addPallet();
+        }
+    }
+
+    function updateAnalytics() {
+        const std = document.getElementById('costStd').value;
+        const cType = document.getElementById('containerType').value;
+        const freightCost = parseFloat(document.getElementById('freightCost').value) || 0;
+        
+        let totalItems = 0, packagingTotal = 0, weight = 0, vol = 0, anyLimited = false;
+        let skuMap = new Map();
+
+        draggablePallets.forEach(p => {
+            const data = p.userData;
+            totalItems += data.itemsCount;
+            weight += data.calcWeight; vol += data.calcVol;
+            const palletCost = (std === 'EU') ? data.costEU : data.costCN;
+            packagingTotal += palletCost;
+            if (data.isLimited) anyLimited = true;
+            if (!skuMap.has(data.name)) skuMap.set(data.name, { cost: 0, count: 0 });
+            let skuEntry = skuMap.get(data.name);
+            skuEntry.cost += palletCost;
+            skuEntry.count += data.itemsCount;
+        });
+
+        const grandTotal = packagingTotal + freightCost;
+
+        let breakdownHTML = "";
+        skuMap.forEach((val, key) => {
+            // Landed cost per SKU = (Packaging of SKU + (Pro-rata share of Freight)) / SKU count
+            const skuFreightShare = totalItems > 0 ? (val.count / totalItems) * freightCost : 0;
+            let cpp = val.count > 0 ? ((val.cost + skuFreightShare) / val.count).toFixed(3) : "0.000";
+            breakdownHTML += `<div class="flex justify-between text-blue-300"><span>${key} cost/pc:</span> <span class="font-mono">€ ${cpp}</span></div>`;
+        });
+        document.getElementById('skuBreakdown').innerHTML = breakdownHTML;
+
+        document.getElementById('outTotalItems').innerText = totalItems;
+        document.getElementById('outVol').innerText = vol.toFixed(2);
+        document.getElementById('outWeight').innerText = (weight / 1000).toFixed(2);
+        document.getElementById('outPackTotal').innerText = packagingTotal.toFixed(2);
+        document.getElementById('outFreightTotal').innerText = freightCost.toFixed(2);
+        document.getElementById('outTotalCost').innerText = grandTotal.toFixed(2);
+        document.getElementById('outUtil').innerText = ((vol / CONTAINERS[cType].vol) * 100).toFixed(1);
+        document.getElementById('outCostPiece').innerText = totalItems > 0 ? (grandTotal / totalItems).toFixed(3) : "0.00";
+        document.getElementById('renderWarning').classList.toggle('hidden', !anyLimited);
+    }
+
+    function saveGood() {
+        const good = {
+            name: document.getElementById('gName').value || "Unnamed",
+            l: parseFloat(document.getElementById('gL').value),
+            w: parseFloat(document.getElementById('gW').value),
+            h: parseFloat(document.getElementById('gH').value),
+            weight: parseFloat(document.getElementById('gWeight').value),
+            packCost: parseFloat(document.getElementById('gPackCost').value)
+        };
+        catalog.push(good);
+        updateCatalogDropdown();
+    }
+    function updateCatalogDropdown() {
+        const el = document.getElementById('catalogList');
+        el.innerHTML = '<option value="">-- Saved Goods --</option>';
+        catalog.forEach((g, i) => el.innerHTML += `<option value="${i}">${g.name}</option>`);
+    }
+
+    // --- UPDATED LOADGOOD FUNCTION ---
+    function loadGood() {
+        const index = document.getElementById('catalogList').value;
+        if(index === "") return;
+        const g = catalog[index];
+        
+        document.getElementById('gL').value = g.l; 
+        document.getElementById('gW').value = g.w;
+        document.getElementById('gH').value = g.h; 
+        document.getElementById('gWeight').value = g.weight;
+        document.getElementById('gName').value = g.name;
+        
+        // Force the value and the display update for packCost
+        const pCostField = document.getElementById('gPackCost');
+        pCostField.value = (g.packCost !== undefined) ? g.packCost : 0.40;
+    }
+
+    function exportSetup() {
+        const data = draggablePallets.map(p => ({ pos: p.position, rot: p.rotation.y, pType: p.userData.palletKey, rows: p.userData.rows, cols: p.userData.cols, layers: p.userData.layers, g: p.userData.goodDims, name: p.userData.name }));
+        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'setup.json'; a.click();
+    }
+    function importSetup(e) {
+        const reader = new FileReader();
+        reader.onload = (f) => { clearAll(); JSON.parse(f.target.result).forEach(i => addPallet(i)); };
+        reader.readAsText(e.target.files[0]);
+    }
+    function exportCatalog() {
+        const blob = new Blob([JSON.stringify(catalog)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'catalog.json'; a.click();
+    }
+
+    // --- UPDATED IMPORTCATALOG FUNCTION ---
+    function importCatalog(e) {
+        const reader = new FileReader();
+        reader.onload = (f) => { 
+            const importedData = JSON.parse(f.target.result);
+            // Ensure every imported item has a packCost or a default
+            catalog = importedData.map(item => ({
+                ...item,
+                packCost: item.packCost !== undefined ? item.packCost : 0.40
+            }));
+            updateCatalogDropdown(); 
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+
+    function clearAll() { draggablePallets.forEach(p => scene.remove(p)); draggablePallets.length = 0; updateAnalytics(); }
+    function animate() { requestAnimationFrame(animate); orbit.update(); renderer.render(scene, camera); }
+    window.onload = init;
+</script>
+</body>
+</html>
